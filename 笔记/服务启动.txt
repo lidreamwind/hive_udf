@@ -1,0 +1,5 @@
+启动hiveserver2
+   nohup hiveserver2 &
+
+hue启动
+/opt/lagou/servers/hue/build/env/bin/supervisor

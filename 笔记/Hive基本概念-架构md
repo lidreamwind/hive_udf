@@ -1,0 +1,249 @@
+# Hive
+
+**Hive本质是：将SQL转换为MR的任务进行计算**
+
+数仓是一个面向主题的，集成的相对稳定的。
+
+## Hive与RDBMS
+
+数据规模：Hive是海量数据。RDBMS只能处理有限的数据集
+
+引擎不同：Hive引擎是MR/Tez/Spark/Flink。RDBMS是自己的执行引擎。
+
+数据存储：Hive保存在HDFS上。RDBMS保存在本地文件系统或者裸设备。
+
+执行速度：Hive相对慢。RDBMS相对快。
+
+可扩展性：Hive支持水平扩展。RDBMS支持垂直扩展，对水平扩展不友好。
+
+数据更新：Hive对数据更新不友好。RDBMS支持频繁、快速数据更新。
+
+## Hive优点
+
+1、学习成本低，提供了HQL，开发人员能快速上手；
+
+2、处理海量数据。底层执行的是MR任务。
+
+3、系统可以水平扩展。底层基于Hadoop。
+
+4、功能可以扩展。Hive允许用户自定义函数。
+
+5、良好的容错性。某个节点发生故障，HQL仍然可以正常完成 。
+
+6、统一的元数据管理（有哪些表，表有什么字段、字段什么类型）。
+
+## Hive缺点
+
+1、HQL表达能力有限。
+
+2、迭代计算无法表达。
+
+3、Hive执行效率不高，基于MR的执行引擎。
+
+4、Hive自动生成的MR作业，某些情况下不够智能。
+
+5、Hive的调优困难
+
+# Hive架构
+
+![image-20210404135521808](.\图片\Hive架构图.png)
+
+
+
+# Hive 安装
+
+版本：	hive2.3.7
+
+   		    MySQL5.7.26
+
+​     		  Mysql-connector-java-5.1.46.jar
+
+## MySQL安装
+
+```shell
+# 查询是否安装了mariadb
+rpm -aq | grep mariadb
+# 删除mariadb。-e 删除指定的套件；--nodeps 不验证套件的相互关联性
+rpm -e --nodeps mariadb-libs
+
+# 安装依赖
+yum install perl -y
+yum install net-tools -y
+
+# 安装MySQL
+# 解压缩
+tar xvf mysql-5.7.26-1.el7.x86_64.rpm-bundle.tar
+# 依次运行以下命令
+rpm -ivh mysql-community-common-5.7.26-1.el7.x86_64.rpm
+rpm -ivh mysql-community-libs-5.7.26-1.el7.x86_64.rpm
+rpm -ivh mysql-community-client-5.7.26-1.el7.x86_64.rpm
+rpm -ivh mysql-community-server-5.7.26-1.el7.x86_64.rpm
+
+#启动数据库
+systemctl start mysqld 
+systemctl enable mysqld 
+
+#修改密码
+grep password /var/log/mysqld.log 
+# 进入MySQL，使用前面查询到的口令
+mysql -u root -p"2@jksK!"
+# 设置口令强度；将root口令设置为12345678；刷新
+set global validate_password_policy=0;
+set global validate_password_mixed_case_count=0;
+set global validate_password_number_count=3;
+set global validate_password_special_char_count=0;
+set global validate_password_length=3;
+set password for 'root'@'localhost' =password('root');
+flush privileges;
+
+# 创建用户设置口令、授权、刷新
+CREATE USER 'hive'@'%' IDENTIFIED BY 'hive';
+grant all PRIVILEGES on *.* to 'hive'@'%' identified by 'hive' with grant option;
+grant all PRIVILEGES on *.* to 'root'@'%' identified by 'root' with grant option;
+FLUSH PRIVILEGES;
+
+#应该是如下操作，控制hive的权限范围
+CREATE DATABASE `hive` CHARACTER SET 'utf8mb4' COLLATE 'utf8mb4_general_ci';
+create user hive IDENTIFIED by 'hive';
+grant all PRIVILEGES on hive.* to 'hive'@'%' identified by 'hive' with grant option;
+grant all PRIVILEGES on hive.* to 'hive'@'localhost' identified by 'hive' with grant option;
+flush privileges;
+```
+
+## Hive配置及安装
+
+```shell
+#解压并重命名
+tar zxvf apache-hive-2.3.7-bin.tar.gz -C ../servers/
+cd ../servers
+mv apache-hive-2.3.7-bin hive-2.3.7
+
+# 在 /etc/profile 文件中增加环境变量
+export HIVE_HOME=/opt/lagou/servers/hive-2.3.7
+export PATH=$PATH:$HIVE_HOME/bin
+# 执行并生效
+source /etc/profile
+```
+
+cd $HIVE_HOME/conf vi hive-site.xml 增加以下内容：
+
+```xml
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+ 	<!-- hive元数据的存储位置 -->
+	<property>
+		<name>javax.jdo.option.ConnectionURL</name>
+		<value>jdbc:mysql://linux123:3306/hive?createDatabaseIfNotExist=true&amp;useSSL=false</value>
+		<description>JDBC connect string for a JDBC metastore</description>
+	</property>
+	
+	<!-- 指定驱动程序 -->
+	<property>
+		<name>javax.jdo.option.ConnectionDriverName</name>
+		<value>com.mysql.jdbc.Driver</value>
+		<description>Driver class name for a JDBC metastore</description>
+	</property>
+	
+	  <!-- 连接数据库的用户名 -->
+	<property>
+		<name>javax.jdo.option.ConnectionUserName</name>
+		<value>hive</value>
+		<description>username to use against metastore database</description>
+	</property>
+	
+	  <!-- 连接数据库的口令 -->
+	<property>
+		<name>javax.jdo.option.ConnectionPassword</name>
+		<value>hive</value>
+		<description>password to use against metastore database</description>
+	</property>
+</configuration>
+```
+
+将 mysql-connector-java-5.1.46.jar 拷贝到 $HIVE_HOME/lib
+
+初始化数据库
+
+​		schematool -dbType mysql -initSchema 
+
+验证Hive安装
+
+```shell
+# 启动hive服务之前，请先启动hdfs、yarn的服务
+[root@linux123 ~]$ hive
+hive> show databases;
+```
+
+## 添加Hive常用配置
+
+```xml
+<property>
+  <!-- 数据默认的存储位置(HDFS) -->
+  <name>hive.metastore.warehouse.dir</name>
+  <value>/user/hive/warehouse</value>
+  <description>location of default database for the warehouse</description>
+</property>
+
+<property>
+  <!-- 在命令行中，显示当前操作的数据库 -->
+  <name>hive.cli.print.current.db</name>
+  <value>true</value>
+  <description>Whether to include the current database in the Hive prompt.</description>
+</property>
+
+<property>
+  <!-- 在命令行中，显示数据的表头 -->
+  <name>hive.cli.print.header</name>
+  <value>true</value>
+</property>
+
+<property>
+  <!-- 操作小规模数据时，使用本地模式，提高效率 
+	使用本地条件为：
+        1、job的输入数据量必须小于参数：hive.exec.mode.local.auto.inputbytes.max (默认128MB)
+        2、job的map数必须小于参数：hive.exec.mode.local.auto.tasks.max (默认4)
+        3、job的reduce数必须为0或者1-->
+  <name>hive.exec.mode.local.auto</name>
+  <value>true</value>
+  <description>Let Hive determine whether to run in local mode automatically</description>
+</property>
+
+```
+
+![image-20210404155345812](.\图片\Hive的日志包冲突.png)
+
+​	rm -rf /opt/lagou/servers/hive-2.3.7/lib/log4j-slf4j-impl-2.6.2.jar
+
+### 修改日志
+
+​	vi $HIVE_HOME/conf/hive-log4j2.properties
+
+​	添加以下内容：
+
+​	property.hive.log.dir = /opt/lagou/servers/hive-2.3.7/logs
+
+
+
+### 增加第三方用户
+
+groupadd hadoop
+
+-m：自动建立用户的登入目录
+
+-g：指定用户所属的起始群组
+
+-G<群组>：指定用户所属的附加群组
+
+－s：指定用户登入后所使用的shell
+
+useradd -m hadoop -g hadoop -s /bin/bash
+passwd hadoop
+visudo
+
+在100行后添加。允许用户执行sudo，免密
+
+hadoop  ALL=(ALL)    NOPASSWD:ALL
+
+
+
