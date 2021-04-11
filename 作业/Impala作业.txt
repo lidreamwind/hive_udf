@@ -1,0 +1,30 @@
+-- 整体思路
+-- 1、依然是获取时间戳，用于时间相减
+-- 2、将数据下移动一位，时间相减，获取两条记录的时间差,,并标记下一个会话起始位置，预分组pre_gid
+-- 3、对预分组pre_gid，累计求和得到分组gid
+-- 4、通过对gid和user_id使用row_number函数得到结果
+with tmp as (
+    --  1、依然是获取时间戳，用于时间相减
+    select user_id, unix_timestamp(click_time, 'yyyy-MM-dd HH:mm:ss') dt
+             from user_clicklog
+)
+select user_id,dt,
+       row_number() over (partition by user_id,gid order by user_id,dt) as rank
+from (
+                -- 3、对预分组pre_gid，累计求和得到分组gid
+                  select user_id,
+                         from_unixtime(dt)  dt,
+                         sum(pre_gid) over (partition by user_id order by user_id,dt) gid,
+                         pre_gid
+                  from (
+                            -- 2、将数据下移动一位，时间相减，获取两条记录的时间差,,,并标记下一个会话起始位置
+                           select user_id,
+                                  dt,
+                                  case
+                                      when lag(dt) over (partition by user_id order by dt) is null then 0
+                                      when (dt - lag(dt) over (partition by user_id order by user_id,dt)) > 1800 then 1
+                                      else 0 end pre_gid
+                           from tmp
+                       ) t1
+                  order by user_id, dt
+) t12
