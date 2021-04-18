@@ -1,0 +1,22 @@
+zookeeper：
+	任意节点：zk.sh start/stop/status
+
+hbase:
+	linux123:	
+		start-hbase.sh
+		stop-hbase.sh
+
+azkaban:
+	
+	linux123,linux121:
+		exec-server:
+			cd /opt/lagou/servers/azkaban/azkaban-exec-server-0.1.0-SNAPSHOT/
+			bin/start-exec.sh
+			bin/shutdown-exec.sh
+
+	linux122:
+		web-server:
+			cd /opt/lagou/servers/azkaban/azkaban-web-server-0.1.0-SNAPSHOT/
+			bin/start-web.sh
+			bin/shutdown-web.sh
+
