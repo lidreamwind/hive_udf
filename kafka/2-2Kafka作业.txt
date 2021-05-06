@@ -1,0 +1,99 @@
+# 环境已经配置好java
+
+1、安装zookeeper
+	tar -zxf zookeeper-3.4.14.tar.gz -C /opt/lagou/servers
+
+
+	cd /opt/lagou/servers/zookeeper-3.4.14/conf 
+	# 复制zoo_sample.cfg命名为zoo.cfg 
+	cp zoo_sample.cfg zoo.cfg 
+	# 编辑zoo.cfg文件 
+	vim zoo.cfg
+
+	修改Zookeeper保存数据的目录，dataDir：
+	dataDir=/opt/lagou/servers/zookeeper-3.4.14/data
+
+	vim /etc/profile
+
+	# ZOOKEEPER_PREFIX指向Zookeeper的解压目录
+	export ZOOKEEPER_HOME=/opt/lagou/servers/zookeeper-3.4.14
+	# 将Zookeeper的bin目录添加到PATH中
+	export PATH=$PATH:$ZOOKEEPER_HOME/bin
+	# 设置环境变量ZOO_LOG_DIR，指定Zookeeper保存日志
+	export ZOO_LOG_DIR=/opt/lagou/servers/zookeeper-3.4.14/log
+	
+	启动：
+		zkServer.sh start
+
+2、安装kafka
+	tar -zxf kafka_2.12-1.0.2.tgz -C /opt/lagou/servers
+	
+	vim /etc/profile
+
+	export KAFKA_HOME=/opt/lagou/servers/kafka_2.12-1.0.2
+	export PATH=$PATH:$KAFKA_HOME/bin
+
+	source /etc/profile
+	
+	vim /opt/lagou/servers/kafka_2.12-1.0.2/config/server.properties
+
+	log.dirs=/var/log/kafka/kafka-logs
+	zookeeper.connect=linux123:2181/myKafka
+	
+	启动：	
+		kafka-server-start.sh -daemon /opt/lagou/servers/kafka_2.12-1.0.2/config/server.properties 
+		
+	创建主题：
+		kafka-topics.sh --zookeeper linux123:2181/myKafka --create --topic tp_individual --partitions 1 --replication-factor 1
+	
+	
+3、 安装nginx
+	yum install -y wget
+	
+	wget http://nginx.org/download/nginx-1.8.0.tar.gz
+
+	tar -zxvf nginx-1.8.0.tar.gz -C /usr/local/src/
+	# 安装git
+	yum install -y git
+	# 切换到/usr/local/src目录，然后将kafka的c客户端源码clone到本地
+	cd /usr/local/src
+	git clone https://github.com/edenhill/librdkafka
+
+	# 进入到librdkafka，然后进行编译
+	cd librdkafka
+	yum install -y gcc gcc-c++ pcre-devel zlib-devel
+	./configure
+	make && make install
+
+	# 安装nginx整合kafka的插件，进入到/usr/local/src，clone nginx整合kafka的源码
+	cd /usr/local/src
+	git clone https://github.com/brg-liuwei/ngx_kafka_module
+
+	# 进入到nginx的源码包目录下（编译nginx，然后将将插件同时编译）
+	cd /usr/local/src/nginx-1.8.0
+	./configure --add-module=/usr/local/src/ngx_kafka_module/
+	make & make install
+	
+	修改nginx的配置文件，在http中添加如下内容。
+	kafka;
+    kafka_broker_list linux123:9092;
+    server {
+        # topic 消息转发到kafka
+        listen 81;
+        location = /log {
+             # 开启跨域
+            #add_header 'Access-Control-Allow-Origin' '*';
+            #add_header 'Access-Control-Allow-Credentials' 'true';
+            kafka_topic tp_individual;
+        }
+    }
+
+	# 加载so库
+	echo "/usr/local/lib" >> /etc/ld.so.conf
+	ldconfig
+	
+	# 启动nginx
+	/usr/local/nginx/sbin/nginx
+	# 查看nginx进程
+	ps -ef | grep nginx
+	netstat -anpt | grep nginx
