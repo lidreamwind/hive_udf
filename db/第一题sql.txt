@@ -1,0 +1,13 @@
+-- 1.按照uid分区，dt排序得到排名函数
+-- 2.用dt减去排名函数的值，生成新的一列 group_dt
+-- 3.按照group_dt分组即可得到连续3天登录的用户
+with tmp as (
+    select uid,
+           dt,
+           row_number() over (partition by uid order by dt) as rn
+    from dws.dws_member_start_day
+),
+tmp2 as (
+    select uid, dt, date_sub(dt, rn) as group_dt
+    from tmp
+)select uid, date_add(group_dt,1) from tmp2 group by uid,group_dt having count(*)>=1
